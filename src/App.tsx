@@ -1,50 +1,28 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import Layout, { type PageId } from "./components/Layout";
+import Status from "./pages/Status";
+import Console from "./pages/Console";
+import Players from "./pages/Players";
+import Metrics from "./pages/Metrics";
+import Settings from "./pages/Settings";
+import type { ComponentType } from "react";
+
+const PAGES: Record<PageId, { label: string; component: ComponentType }> = {
+  status: { label: "Status", component: Status },
+  console: { label: "Console", component: Console },
+  players: { label: "Players", component: Players },
+  metrics: { label: "Metrics", component: Metrics },
+  settings: { label: "Settings", component: Settings },
+};
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const [page, setPage] = useState<PageId>("status");
+  const Active = PAGES[page].component;
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    <Layout page={page} label={PAGES[page].label} onNavigate={setPage}>
+      <Active />
+    </Layout>
   );
 }
 

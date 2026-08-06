@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "MC Dashboard",
   "version": "0.1.0",
   "identifier": "com.minecraft.dashboard",
   "build": {
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
-        "width": 800,
-        "height": 600
+        "title": "MC Dashboard",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 600
       }
     ],
     "security": {
