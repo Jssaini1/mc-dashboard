@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { load } from "@tauri-apps/plugin-store";
 
 export interface ServerSettings {
   serverDir: string;
@@ -55,6 +56,20 @@ function Settings() {
   const [form, setForm] = useState<ServerSettings>({ ...DEFAULT_SETTINGS });
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const store = await load("settings.json", { autoSave: false });
+        const stored = await store.get<Partial<ServerSettings>>("settings");
+        if (stored) {
+          setForm((f) => ({ ...f, ...stored }));
+        }
+      } catch {
+        // store not available (e.g. running in a plain browser)
+      }
+    })();
+  }, []);
+
   const minMemoryOk = form.minMemoryMb >= 512;
   const maxMemoryOk = form.maxMemoryMb >= form.minMemoryMb;
   const jarOk = form.serverJar.trim().toLowerCase().endsWith(".jar");
@@ -73,7 +88,18 @@ function Settings() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    setSaved(true);
+    save();
+  }
+
+  async function save() {
+    try {
+      const store = await load("settings.json", { autoSave: false });
+      await store.set("settings", form);
+      await store.save();
+      setSaved(true);
+    } catch {
+      setSaved(false);
+    }
   }
 
   return (
@@ -173,9 +199,7 @@ function Settings() {
           Save settings
         </button>
         {saved && (
-          <span className="text-xs text-green-400">
-            Settings valid — persistence arrives in the next step.
-          </span>
+          <span className="text-xs text-green-400">Settings saved.</span>
         )}
       </div>
     </form>
