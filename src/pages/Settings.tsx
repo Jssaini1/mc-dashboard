@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { load } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export interface ServerSettings {
   serverDir: string;
@@ -55,6 +57,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Settings() {
   const [form, setForm] = useState<ServerSettings>({ ...DEFAULT_SETTINGS });
   const [saved, setSaved] = useState(false);
+  const [eulaAgreed, setEulaAgreed] = useState(false);
+  const [firstRun, setFirstRun] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -99,6 +103,17 @@ function Settings() {
       setSaved(true);
     } catch {
       setSaved(false);
+    }
+  }
+
+  async function prepareFirstRun() {
+    try {
+      const dir = form.serverDir.trim();
+      const eulaMsg = await invoke<string>("accept_eula", { serverDir: dir });
+      const propsMsg = await invoke<string>("ensure_server_properties", { serverDir: dir });
+      setFirstRun({ text: `${eulaMsg} | ${propsMsg}`, ok: true });
+    } catch (err) {
+      setFirstRun({ text: String(err), ok: false });
     }
   }
 
@@ -188,6 +203,43 @@ function Settings() {
           />
           Auto-start the server when the dashboard opens
         </label>
+      </Section>
+
+      <Section title="First run">
+        <label className="flex items-start gap-3 text-sm text-neutral-300">
+          <input
+            type="checkbox"
+            checked={eulaAgreed}
+            onChange={(e) => setEulaAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-neutral-700 bg-neutral-900"
+          />
+          <span>
+            I agree to the Minecraft End User License Agreement (
+            <button
+              type="button"
+              onClick={() => openUrl("https://aka.ms/MinecraftEULA")}
+              className="text-neutral-400 underline hover:text-neutral-200"
+            >
+              aka.ms/MinecraftEULA
+            </button>
+            ).
+          </span>
+        </label>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={prepareFirstRun}
+            disabled={!eulaAgreed || !valid}
+            className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Accept EULA and prepare server files
+          </button>
+          {firstRun && (
+            <span className={firstRun.ok ? "text-xs text-green-400" : "text-xs text-red-400"}>
+              {firstRun.text}
+            </span>
+          )}
+        </div>
       </Section>
 
       <div className="flex items-center gap-3">
