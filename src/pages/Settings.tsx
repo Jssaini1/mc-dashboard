@@ -3,24 +3,7 @@ import type { FormEvent, ReactNode } from "react";
 import { load } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-
-export interface ServerSettings {
-  serverDir: string;
-  serverJar: string;
-  javaPath: string;
-  minMemoryMb: number;
-  maxMemoryMb: number;
-  autoStart: boolean;
-}
-
-const DEFAULT_SETTINGS: ServerSettings = {
-  serverDir: "",
-  serverJar: "server.jar",
-  javaPath: "",
-  minMemoryMb: 1024,
-  maxMemoryMb: 2048,
-  autoStart: false,
-};
+import { DEFAULT_SETTINGS, loadServerSettings, type ServerSettings } from "../lib/server";
 
 const inputClass =
   "w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none disabled:opacity-50";
@@ -61,17 +44,9 @@ function Settings() {
   const [firstRun, setFirstRun] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const store = await load("settings.json", { autoSave: false });
-        const stored = await store.get<Partial<ServerSettings>>("settings");
-        if (stored) {
-          setForm((f) => ({ ...f, ...stored }));
-        }
-      } catch {
-        // store not available (e.g. running in a plain browser)
-      }
-    })();
+    loadServerSettings()
+      .then(setForm)
+      .catch(() => {});
   }, []);
 
   const minMemoryOk = form.minMemoryMb >= 512;

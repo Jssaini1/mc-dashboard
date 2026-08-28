@@ -88,11 +88,20 @@ mod tests {
     use std::time::Duration;
 
     fn echo_cmd() -> Command {
-        let mut cmd = Command::new("powershell.exe");
-        cmd.arg("-NoProfile")
-            .arg("-Command")
-            .arg("Write-Output 'first'; Write-Output 'second'; Write-Output 'third'");
-        cmd
+        #[cfg(windows)]
+        {
+            let mut cmd = Command::new("powershell.exe");
+            cmd.arg("-NoProfile")
+                .arg("-Command")
+                .arg("Write-Output 'first'; Write-Output 'second'; Write-Output 'third'");
+            cmd
+        }
+        #[cfg(not(windows))]
+        {
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c").arg("echo first; echo second; echo third");
+            cmd
+        }
     }
 
     #[test]
@@ -131,10 +140,23 @@ mod tests {
         let on_output = move |ev: OutputEvent| {
             let _ = tx.send(ev);
         };
-        let mut cmd = Command::new("powershell.exe");
-        cmd.arg("-NoProfile")
-            .arg("-Command")
-            .arg("Write-Output 'START'; $line = [Console]::In.ReadLine(); Write-Output ('GOT: ' + $line)");
+        let mut cmd = {
+            #[cfg(windows)]
+            {
+                let mut c = Command::new("powershell.exe");
+                c.arg("-NoProfile")
+                    .arg("-Command")
+                    .arg("Write-Output 'START'; $line = [Console]::In.ReadLine(); Write-Output ('GOT: ' + $line)");
+                c
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("sh");
+                c.arg("-c")
+                    .arg("echo START; read line; echo \"GOT: $line\"");
+                c
+            }
+        };
         let mut proc = ServerProcess::spawn(cmd, on_output).expect("spawn");
 
         let mut saw_start = false;
@@ -168,8 +190,20 @@ mod tests {
         let on_output = move |ev: OutputEvent| {
             let _ = tx.send(ev);
         };
-        let mut cmd = Command::new("cmd.exe");
-        cmd.arg("/C").arg("ping -n 1000 127.0.0.1");
+        let mut cmd = {
+            #[cfg(windows)]
+            {
+                let mut c = Command::new("cmd.exe");
+                c.arg("/C").arg("ping -n 1000 127.0.0.1");
+                c
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("sleep");
+                c.arg("1000");
+                c
+            }
+        };
         let mut proc = ServerProcess::spawn(cmd, on_output).expect("spawn");
         assert!(proc.is_alive().expect("try_wait"));
 

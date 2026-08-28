@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Command;
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -7,6 +8,7 @@ use crate::server::error::ServerError;
 use crate::server::process::{OutputEvent, ServerProcess};
 
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+const CAPTURE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerState {
@@ -66,9 +68,28 @@ impl ServerConfig {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PlayersResponse {
+    pub count: usize,
+    pub max: usize,
+    pub names: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ServerInfo {
+    pub state: String,
+    pub uptime_secs: u64,
+    pub server_dir: String,
+    pub server_jar: String,
+    pub min_memory_mb: u64,
+    pub max_memory_mb: u64,
+}
+
 pub struct ServerManager {
     state: Arc<Mutex<ServerState>>,
     process: Option<ServerProcess>,
+    capture: Arc<Mutex<Option<mpsc::Sender<String>>>>,
+    started_at: Option<Instant>,
 }
 
 impl ServerManager {
@@ -76,6 +97,8 @@ impl ServerManager {
         ServerManager {
             state: Arc::new(Mutex::new(ServerState::Stopped)),
             process: None,
+            capture: Arc::new(Mutex::new(None)),
+            started_at: None,
         }
     }
 
@@ -105,9 +128,13 @@ impl ServerManager {
 
         let state_ref = Arc::clone(&self.state);
         let on_line_ref = Arc::clone(&on_line);
+        let capture_ref = Arc::clone(&self.capture);
         let on_output = move |ev: OutputEvent| match ev {
             OutputEvent::Line(line) => {
                 on_line_ref(line.clone());
+                if let Some(tx) = capture_ref.lock().expect("capture lock poisoned").as_ref() {
+                    let _ = tx.send(line.clone());
+                }
                 let mut st = state_ref.lock().expect("state lock poisoned");
                 if *st == ServerState::Starting && is_done_line(&line) {
                     *st = ServerState::Online;
@@ -125,6 +152,7 @@ impl ServerManager {
             .map_err(|e| ServerError::SpawnFailed(e.to_string()))?;
         *self.state.lock().expect("state lock poisoned") = ServerState::Starting;
         self.process = Some(proc);
+        self.started_at = Some(Instant::now());
         Ok(())
     }
 
@@ -159,6 +187,7 @@ impl ServerManager {
         }
 
         self.process = None;
+        self.started_at = None;
         *self.state.lock().expect("state lock poisoned") = ServerState::Stopped;
         Ok(())
     }
@@ -180,6 +209,57 @@ impl ServerManager {
             None => Err(ServerError::NotRunning),
         }
     }
+
+    pub fn send_and_capture(
+        &mut self,
+        command: &str,
+        max_lines: usize,
+    ) -> Result<Vec<String>, ServerError> {
+        if !matches!(self.state(), ServerState::Online | ServerState::Starting) {
+            return Err(ServerError::NotRunning);
+        }
+
+        let (tx, rx) = mpsc::channel();
+        *self.capture.lock().expect("capture lock poisoned") = Some(tx);
+        self.send_command(command)?;
+
+        let mut lines = Vec::new();
+        let deadline = Instant::now() + CAPTURE_TIMEOUT;
+        while lines.len() < max_lines && Instant::now() < deadline {
+            match rx.recv_timeout(Duration::from_millis(200)) {
+                Ok(line) => lines.push(line),
+                Err(mpsc::RecvTimeoutError::Timeout) => break,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        *self.capture.lock().expect("capture lock poisoned") = None;
+        Ok(lines)
+    }
+
+    pub fn uptime_secs(&self) -> u64 {
+        self.started_at
+            .map(|t| t.elapsed().as_secs())
+            .unwrap_or(0)
+    }
+
+    pub fn server_info(&self, config: Option<&ServerConfig>) -> ServerInfo {
+        let default = ServerConfig {
+            server_dir: String::new(),
+            server_jar: String::new(),
+            java_path: String::new(),
+            min_memory_mb: 0,
+            max_memory_mb: 0,
+        };
+        let cfg = config.unwrap_or(&default);
+        ServerInfo {
+            state: self.state().label().to_string(),
+            uptime_secs: self.uptime_secs(),
+            server_dir: cfg.server_dir.clone(),
+            server_jar: cfg.server_jar.clone(),
+            min_memory_mb: cfg.min_memory_mb,
+            max_memory_mb: cfg.max_memory_mb,
+        }
+    }
 }
 
 fn is_done_line(line: &str) -> bool {
@@ -193,11 +273,27 @@ mod tests {
     use std::time::Duration;
 
     fn fake_server_cmd() -> Command {
-        let mut cmd = Command::new("powershell.exe");
-        cmd.arg("-NoProfile")
-            .arg("-Command")
-            .arg("Write-Output 'Starting minecraft server version 1.21'; Write-Output 'Done (1.000s)! For help, type \"help\"'; while ($true) { $l = [Console]::In.ReadLine(); if ($null -eq $l) { break }; if ($l -eq 'stop') { Write-Output 'Stopping server'; break } }");
-        cmd
+        #[cfg(windows)]
+        {
+            let mut cmd = Command::new("powershell.exe");
+            cmd.arg("-NoProfile")
+                .arg("-Command")
+                .arg("Write-Output 'Starting minecraft server version 1.21'; Write-Output 'Done (1.000s)! For help, type \"help\"'; while ($true) { $l = [Console]::In.ReadLine(); if ($null -eq $l) { break }; if ($l -eq 'stop') { Write-Output 'Stopping server'; break } }");
+            cmd
+        }
+        #[cfg(not(windows))]
+        {
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c").arg(concat!(
+                "echo 'Starting minecraft server version 1.21'; ",
+                "echo 'Done (1.000s)! For help, type \"help\"'; ",
+                "while IFS= read -r l; do ",
+                "  if [ -z \"$l\" ]; then break; fi; ",
+                "  if [ \"$l\" = \"stop\" ]; then echo 'Stopping server'; break; fi; ",
+                "done"
+            ));
+            cmd
+        }
     }
 
     fn collector() -> (mpsc::Receiver<String>, Arc<dyn Fn(String) + Send + Sync>) {
@@ -255,5 +351,33 @@ mod tests {
         assert!(is_done_line("Done (5.123s)! For help, type \"help\""));
         assert!(!is_done_line("Preparing spawn area: 10%"));
         assert!(!is_done_line("Done cleaning"));
+    }
+
+    #[test]
+    fn parse_list_with_players() {
+        let lines = vec![
+            "There are 3 of a max of 20 players online: Steve, Alex, Notch".to_string(),
+        ];
+        let resp = crate::server::commands::parse_list_output(&lines);
+        assert_eq!(resp.count, 3);
+        assert_eq!(resp.max, 20);
+        assert_eq!(resp.names, vec!["Steve", "Alex", "Notch"]);
+    }
+
+    #[test]
+    fn parse_list_no_players() {
+        let lines = vec!["There are 0 of a max of 20 players online:".to_string()];
+        let resp = crate::server::commands::parse_list_output(&lines);
+        assert_eq!(resp.count, 0);
+        assert_eq!(resp.max, 20);
+        assert!(resp.names.is_empty());
+    }
+
+    #[test]
+    fn parse_list_empty() {
+        let resp = crate::server::commands::parse_list_output(&[]);
+        assert_eq!(resp.count, 0);
+        assert_eq!(resp.max, 0);
+        assert!(resp.names.is_empty());
     }
 }

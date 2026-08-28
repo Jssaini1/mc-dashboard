@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ServerState } from "../lib/server";
 
 export type PageId = "status" | "console" | "players" | "metrics" | "settings";
 
@@ -10,14 +11,29 @@ const NAV: { id: PageId; label: string }[] = [
   { id: "settings", label: "Settings" },
 ];
 
+const STATE_COLORS: Record<ServerState, string> = {
+  stopped: "border-neutral-800 text-neutral-500",
+  starting: "border-amber-700/50 text-amber-400",
+  online: "border-green-700/50 text-green-400",
+  stopping: "border-red-700/50 text-red-400",
+};
+
+const STATE_LABELS: Record<ServerState, string> = {
+  stopped: "Offline",
+  starting: "Starting...",
+  online: "Online",
+  stopping: "Stopping...",
+};
+
 interface LayoutProps {
   page: PageId;
   label: string;
+  serverState: ServerState;
   onNavigate: (page: PageId) => void;
   children: ReactNode;
 }
 
-function Layout({ page, label, onNavigate, children }: LayoutProps) {
+function Layout({ page, label, serverState, onNavigate, children }: LayoutProps) {
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-200">
       <aside className="flex w-52 flex-col border-r border-neutral-800 bg-neutral-900">
@@ -43,8 +59,10 @@ function Layout({ page, label, onNavigate, children }: LayoutProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
           <h1 className="text-lg font-semibold text-neutral-100">{label}</h1>
-          <span className="rounded-full border border-neutral-800 px-3 py-1 text-xs text-neutral-500">
-            Offline
+          <span
+            className={`rounded-full border px-3 py-1 text-xs ${STATE_COLORS[serverState]}`}
+          >
+            {STATE_LABELS[serverState]}
           </span>
         </header>
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
