@@ -87,6 +87,26 @@ export function getServerInfo(): Promise<ServerInfo> {
   return invoke<ServerInfo>("get_server_info");
 }
 
+export interface MetricSample {
+  memory_mb: number;
+  cpu_percent: number;
+}
+
+export interface SystemInfo {
+  java_version: string;
+  os: string;
+  os_arch: string;
+  processors: number;
+}
+
+export function getServerMetrics(): Promise<MetricSample> {
+  return invoke<MetricSample>("get_server_metrics");
+}
+
+export function getSystemInfo(): Promise<SystemInfo> {
+  return invoke<SystemInfo>("get_system_info");
+}
+
 const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function stripAnsi(line: string): string {

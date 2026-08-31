@@ -100,10 +100,12 @@ impl ServerManager {
             capture: Arc::new(Mutex::new(None)),
             started_at: None,
         }
+    }    pub fn state(&self) -> ServerState {
+        *self.state.lock().expect("state lock poisoned")
     }
 
-    pub fn state(&self) -> ServerState {
-        *self.state.lock().expect("state lock poisoned")
+    pub fn server_pid(&self) -> Option<u32> {
+        self.process.as_ref().map(|p| p.pid())
     }
 
     pub fn start(

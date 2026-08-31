@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Layout, { type PageId } from "./components/Layout";
+import Overview from "./pages/Overview";
 import Status from "./pages/Status";
 import Console from "./pages/Console";
 import Players from "./pages/Players";
@@ -9,6 +10,7 @@ import { useServerState } from "./hooks/useServerState";
 import type { ComponentType } from "react";
 
 const PAGES: Record<PageId, { label: string; component: ComponentType }> = {
+  overview: { label: "Overview", component: Overview },
   status: { label: "Status", component: Status },
   console: { label: "Console", component: Console },
   players: { label: "Players", component: Players },

@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import type { ServerState } from "../lib/server";
 
-export type PageId = "status" | "console" | "players" | "metrics" | "settings";
+export type PageId = "overview" | "status" | "console" | "players" | "metrics" | "settings";
 
 const NAV: { id: PageId; label: string }[] = [
+  { id: "overview", label: "Overview" },
   { id: "status", label: "Status" },
   { id: "console", label: "Console" },
   { id: "players", label: "Players" },

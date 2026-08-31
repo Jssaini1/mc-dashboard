@@ -43,6 +43,10 @@ impl ServerProcess {
         self.child.kill()
     }
 
+    pub fn pid(&self) -> u32 {
+        self.child.id()
+    }
+
     pub fn is_alive(&mut self) -> io::Result<bool> {
         match self.child.try_wait()? {
             Some(_) => Ok(false),

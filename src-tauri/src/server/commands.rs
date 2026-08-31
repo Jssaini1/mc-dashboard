@@ -74,6 +74,22 @@ pub fn get_server_info(
     Ok(mgr.server_info(None))
 }
 
+#[tauri::command]
+pub fn get_system_info() -> crate::server::metrics::SystemInfo {
+    crate::server::metrics::get_system_info()
+}
+
+#[tauri::command]
+pub fn get_server_metrics(
+    state: State<Mutex<ServerManager>>,
+) -> Result<crate::server::metrics::MetricSample, ServerError> {
+    let mgr = state.lock().expect("server manager lock poisoned");
+    let pid = mgr
+        .server_pid()
+        .ok_or(ServerError::NotRunning)?;
+    crate::server::metrics::sample_process(pid)
+}
+
 pub(crate) fn parse_list_output(lines: &[String]) -> PlayersResponse {
     for line in lines {
         if let Some(idx) = line.find("players online") {

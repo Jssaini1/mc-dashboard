@@ -25,6 +25,8 @@ pub fn run() {
             server::commands::get_server_state,
             server::commands::list_players,
             server::commands::get_server_info,
+            server::commands::get_system_info,
+            server::commands::get_server_metrics,
         ])
         .setup(|app| {
             let show = MenuItemBuilder::with_id("show", "Show Dashboard").build(app)?;
