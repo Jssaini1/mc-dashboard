@@ -86,6 +86,11 @@ pub fn detect_java() -> Result<String, ServerError> {
 }
 
 #[tauri::command]
+pub fn get_overview_info(server_dir: String) -> crate::server::info::OverviewInfo {
+    crate::server::info::read_overview_info(&server_dir)
+}
+
+#[tauri::command]
 pub fn get_server_metrics(
     state: State<Mutex<ServerManager>>,
 ) -> Result<crate::server::metrics::MetricSample, ServerError> {

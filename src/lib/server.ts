@@ -111,6 +111,18 @@ export function detectJava(): Promise<string> {
   return invoke<string>("detect_java");
 }
 
+export interface OverviewInfo {
+  difficulty: string | null;
+  level_name: string | null;
+  software: string | null;
+  version: string | null;
+  ip: string | null;
+}
+
+export function getOverviewInfo(serverDir: string): Promise<OverviewInfo> {
+  return invoke<OverviewInfo>("get_overview_info", { serverDir });
+}
+
 const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function stripAnsi(line: string): string {
