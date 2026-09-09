@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from "react";
 import { load } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { open } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_SETTINGS, loadServerSettings, type ServerSettings } from "../lib/server";
 
 const inputClass =
@@ -81,6 +82,29 @@ function Settings() {
     }
   }
 
+  async function pickDirectory() {
+    try {
+      const dir = await open({ directory: true, multiple: false, title: "Select Server Directory" });
+      if (typeof dir === "string") set("serverDir", dir);
+    } catch {
+      /* cancelled or unavailable */
+    }
+  }
+
+  async function pickJar() {
+    try {
+      const file = await open({
+        directory: false,
+        multiple: false,
+        title: "Select Server Jar",
+        filters: [{ name: "Server jar", extensions: ["jar"] }],
+      });
+      if (typeof file === "string") set("serverJar", file.split(/[\\/]/).pop() ?? file);
+    } catch {
+      /* cancelled or unavailable */
+    }
+  }
+
   async function prepareFirstRun() {
     try {
       const dir = form.serverDir.trim();
@@ -96,12 +120,22 @@ function Settings() {
     <form onSubmit={handleSubmit} className="flex max-w-2xl flex-col gap-6">
       <Section title="Server">
         <Field label="Server directory" hint="Folder containing the server files (world, logs, eula.txt)">
-          <input
-            className={inputClass}
-            value={form.serverDir}
-            onChange={(e) => set("serverDir", e.target.value)}
-            placeholder="C:\minecraft\server"
-          />
+          <div className="flex gap-2">
+            <input
+              className={inputClass}
+              value={form.serverDir}
+              onChange={(e) => set("serverDir", e.target.value)}
+              placeholder="C:\minecraft\server"
+            />
+            <button
+              type="button"
+              onClick={pickDirectory}
+              title="Browse for a folder"
+              className="shrink-0 rounded-md border border-neutral-700 px-3 text-sm text-neutral-300 hover:bg-neutral-800"
+            >
+              Browse
+            </button>
+          </div>
         </Field>
         <Field label="Server jar" hint="The server jar file inside the directory">
           <div className="flex gap-2">
@@ -113,9 +147,9 @@ function Settings() {
             />
             <button
               type="button"
-              disabled
-              title="Enabled in the next step"
-              className="shrink-0 rounded-md border border-neutral-700 px-3 text-sm text-neutral-500 disabled:opacity-50"
+              onClick={pickJar}
+              title="Choose a server jar file"
+              className="shrink-0 rounded-md border border-neutral-700 px-3 text-sm text-neutral-300 hover:bg-neutral-800"
             >
               Browse
             </button>
