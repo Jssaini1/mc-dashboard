@@ -86,8 +86,8 @@ function Settings() {
     try {
       const dir = await open({ directory: true, multiple: false, title: "Select Server Directory" });
       if (typeof dir === "string") set("serverDir", dir);
-    } catch {
-      /* cancelled or unavailable */
+    } catch (err) {
+      setFirstRun({ text: `Folder picker error: ${String(err)}`, ok: false });
     }
   }
 
@@ -100,8 +100,8 @@ function Settings() {
         filters: [{ name: "Server jar", extensions: ["jar"] }],
       });
       if (typeof file === "string") set("serverJar", file.split(/[\\/]/).pop() ?? file);
-    } catch {
-      /* cancelled or unavailable */
+    } catch (err) {
+      setFirstRun({ text: `File picker error: ${String(err)}`, ok: false });
     }
   }
 
