@@ -107,6 +107,10 @@ export function getSystemInfo(): Promise<SystemInfo> {
   return invoke<SystemInfo>("get_system_info");
 }
 
+export function detectJava(): Promise<string> {
+  return invoke<string>("detect_java");
+}
+
 const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function stripAnsi(line: string): string {

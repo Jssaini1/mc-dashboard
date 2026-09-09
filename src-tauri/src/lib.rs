@@ -28,6 +28,7 @@ pub fn run() {
             server::commands::get_server_info,
             server::commands::get_system_info,
             server::commands::get_server_metrics,
+            server::commands::detect_java,
         ])
         .setup(|app| {
             let show = MenuItemBuilder::with_id("show", "Show Dashboard").build(app)?;

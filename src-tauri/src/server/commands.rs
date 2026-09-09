@@ -80,6 +80,12 @@ pub fn get_system_info() -> crate::server::metrics::SystemInfo {
 }
 
 #[tauri::command]
+pub fn detect_java() -> Result<String, ServerError> {
+    crate::server::metrics::detect_java_path()
+        .ok_or_else(|| ServerError::JavaNotFound("auto-detect failed (java not found on PATH)".to_string()))
+}
+
+#[tauri::command]
 pub fn get_server_metrics(
     state: State<Mutex<ServerManager>>,
 ) -> Result<crate::server::metrics::MetricSample, ServerError> {

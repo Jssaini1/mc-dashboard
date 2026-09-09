@@ -4,7 +4,7 @@ import { load } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { open } from "@tauri-apps/plugin-dialog";
-import { DEFAULT_SETTINGS, loadServerSettings, type ServerSettings } from "../lib/server";
+import { DEFAULT_SETTINGS, loadServerSettings, detectJava, type ServerSettings } from "../lib/server";
 
 const inputClass =
   "w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none disabled:opacity-50";
@@ -53,12 +53,7 @@ function Settings() {
   const minMemoryOk = form.minMemoryMb >= 512;
   const maxMemoryOk = form.maxMemoryMb >= form.minMemoryMb;
   const jarOk = form.serverJar.trim().toLowerCase().endsWith(".jar");
-  const valid =
-    form.serverDir.trim() !== "" &&
-    jarOk &&
-    form.javaPath.trim() !== "" &&
-    minMemoryOk &&
-    maxMemoryOk;
+  const valid = form.serverDir.trim() !== "" && jarOk && minMemoryOk && maxMemoryOk;
 
   function set<K extends keyof ServerSettings>(key: K, value: ServerSettings[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -102,6 +97,16 @@ function Settings() {
       if (typeof file === "string") set("serverJar", file.split(/[\\/]/).pop() ?? file);
     } catch (err) {
       setFirstRun({ text: `File picker error: ${String(err)}`, ok: false });
+    }
+  }
+
+  async function detectJavaPath() {
+    try {
+      const path = await detectJava();
+      set("javaPath", path);
+      setFirstRun({ text: `Java detected: ${path}`, ok: true });
+    } catch (err) {
+      setFirstRun({ text: `Java not found on PATH: ${String(err)}`, ok: false });
     }
   }
 
@@ -155,19 +160,19 @@ function Settings() {
             </button>
           </div>
         </Field>
-        <Field label="Java path" hint="Full path to the java executable">
+        <Field label="Java path" hint="Leave blank to auto-detect java from PATH">
           <div className="flex gap-2">
             <input
               className={inputClass}
               value={form.javaPath}
               onChange={(e) => set("javaPath", e.target.value)}
-              placeholder="C:\Program Files\Java\jdk-21\bin\java.exe"
+              placeholder="auto-detect (java)"
             />
             <button
               type="button"
-              disabled
-              title="Enabled in the next step"
-              className="shrink-0 rounded-md border border-neutral-700 px-3 text-sm text-neutral-500 disabled:opacity-50"
+              onClick={detectJavaPath}
+              title="Detect the java executable"
+              className="shrink-0 rounded-md border border-neutral-700 px-3 text-sm text-neutral-300 hover:bg-neutral-800"
             >
               Detect
             </button>

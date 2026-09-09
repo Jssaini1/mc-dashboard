@@ -40,9 +40,20 @@ pub struct ServerConfig {
 
 impl ServerConfig {
     pub fn to_command(&self) -> Result<Command, ServerError> {
-        if self.java_path.is_empty() || !Path::new(&self.java_path).is_file() {
+        let java = if self.java_path.is_empty() {
+            match crate::server::metrics::detect_java_path() {
+                Some(p) => p,
+                None => {
+                    return Err(ServerError::JavaNotFound(
+                        "auto-detect failed (java not found on PATH)".to_string(),
+                    ))
+                }
+            }
+        } else if Path::new(&self.java_path).is_file() {
+            self.java_path.clone()
+        } else {
             return Err(ServerError::JavaNotFound(self.java_path.clone()));
-        }
+        };
         if self.server_dir.is_empty() || !Path::new(&self.server_dir).is_dir() {
             return Err(ServerError::ServerDirMissing(self.server_dir.clone()));
         }
@@ -57,7 +68,7 @@ impl ServerConfig {
             });
         }
 
-        let mut cmd = Command::new(&self.java_path);
+        let mut cmd = Command::new(&java);
         cmd.arg(format!("-Xms{}M", self.min_memory_mb))
             .arg(format!("-Xmx{}M", self.max_memory_mb))
             .arg("-jar")

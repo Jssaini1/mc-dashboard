@@ -26,6 +26,22 @@ pub fn get_system_info() -> SystemInfo {
     }
 }
 
+pub fn detect_java_path() -> Option<String> {
+    #[cfg(target_os = "windows")]
+    let out = std::process::Command::new("where.exe").arg("java").output().ok()?;
+    #[cfg(not(target_os = "windows"))]
+    let out = std::process::Command::new("which").arg("java").output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    String::from_utf8(out.stdout)
+        .ok()?
+        .lines()
+        .next()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 pub fn sample_process(pid: u32) -> Result<MetricSample, ServerError> {
     let cpu1 = process_cpu_time(pid).map_err(|e| ServerError::Io(e.to_string()))?;
     let start = Instant::now();
